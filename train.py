@@ -437,9 +437,9 @@ def train(hyp, opt, device, tb_writer=None):
             
             
              
-            neptune_run['f1_hardhat_unrecognized'].log(f1[0])
-            neptune_run['f1_in_hardhat'].log(f1[1])
-            neptune_run['f1_not_in_hardhat'].log(f1[2])
+            neptune_run['in_hardhat'].log(f1[0])
+            neptune_run['not_in_hardhat'].log(f1[1])
+            neptune_run['hardhat_unrecognized'].log(f1[2])
             neptune_run['train_loss'].log(mloss[-1])
             neptune_run['val_loss'].log(np.array(results)[:-3].mean())
             neptune_run['lr'].log(optimizer.param_groups[0]["lr"])
@@ -503,7 +503,7 @@ def train(hyp, opt, device, tb_writer=None):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', type=str, default='yolov7.pt', help='initial weights path')
+    parser.add_argument('--weights', type=str, default='', help='initial weights path')
     parser.add_argument('--cfg', type=str, default='cfg/training/yolov7.yaml', help='model.yaml path')
     parser.add_argument('--data', type=str, default='data/data.yaml', help='data.yaml path')
     parser.add_argument('--hyp', type=str, default='data/hyp.scratch.p5.yaml', help='hyperparameters path')

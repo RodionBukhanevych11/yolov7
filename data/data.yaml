@@ -2,4 +2,4 @@ train: /home/eg/dataset_ppe/train/images
 val: /home/eg/dataset_ppe/val/images
 
 nc: 3
-names: [ 'hardhat_unrecognized', 'in_hardhat', 'not_in_hardhat']
+names: [ 'in_hardhat', 'not_in_hardhat', 'hardhat_unrecognized']
