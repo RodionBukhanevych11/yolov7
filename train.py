@@ -441,7 +441,6 @@ def train(hyp, opt, device, tb_writer=None):
             neptune_run['not_in_hardhat'].log(f1[1])
             neptune_run['hardhat_unrecognized'].log(f1[2])
             neptune_run['train_loss'].log(mloss[-1])
-            neptune_run['val_loss'].log(np.array(results)[:-3].mean())
             neptune_run['lr'].log(optimizer.param_groups[0]["lr"])
 
             # Write
