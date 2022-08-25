@@ -8,7 +8,7 @@ import numpy as np
 import torch
 import yaml
 from tqdm import tqdm
-
+import time
 from models.experimental import attempt_load
 from utils.datasets import create_dataloader
 from utils.general import coco80_to_coco91_class, check_dataset, check_file, check_img_size, check_requirements, \
@@ -20,10 +20,10 @@ from utils.torch_utils import select_device, time_synchronized, TracedModel
 
 def test(data,
          weights=None,
-         batch_size=32,
-         imgsz=640,
-         conf_thres=0.001,
-         iou_thres=0.6,  # for NMS
+         batch_size=1,
+         imgsz=736,
+         conf_thres=0.4,
+         iou_thres=0.5,  # for NMS
          save_json=False,
          single_cls=False,
          augment=False,
@@ -97,7 +97,8 @@ def test(data,
     p, r, f1, mp, mr, map50, map, t0, t1 = 0., 0., 0., 0., 0., 0., 0., 0., 0.
     loss = torch.zeros(3, device=device)
     jdict, stats, ap, ap_class, wandb_images = [], [], [], [], []
-    for batch_i, (img, targets, paths, shapes) in enumerate(tqdm(dataloader, desc=s)):
+    times = []
+    for batch_i, (img, targets, paths, shapes) in enumerate(dataloader):
         img = img.to(device, non_blocking=True)
         img = img.half() if half else img.float()  # uint8 to fp16/32
         img /= 255.0  # 0 - 255 to 0.0 - 1.0
@@ -107,7 +108,10 @@ def test(data,
         with torch.no_grad():
             # Run model
             t = time_synchronized()
+            start = time.time()
             out, train_out = model(img, augment=augment)  # inference and training outputs
+            end = time.time()
+            times.append(end-start)
             t0 += time_synchronized() - t
 
             # Compute loss
@@ -117,9 +121,9 @@ def test(data,
             # Run NMS
             targets[:, 2:] *= torch.Tensor([width, height, width, height]).to(device)  # to pixels
             lb = [targets[targets[:, 0] == i, 1:] for i in range(nb)] if save_hybrid else []  # for autolabelling
-            t = time_synchronized()
+            #t = time_synchronized()
             out = non_max_suppression(out, conf_thres=conf_thres, iou_thres=iou_thres, labels=lb, multi_label=True)
-            t1 += time_synchronized() - t
+            #t1 += time_synchronized() - t
 
         # Statistics per image
         for si, pred in enumerate(out):
@@ -214,6 +218,7 @@ def test(data,
             f = save_dir / f'test_batch{batch_i}_pred.jpg'  # predictions
             Thread(target=plot_images, args=(img, output_to_target(out), paths, f, names), daemon=True).start()
 
+    print("MEAN TIME = ",np.mean(times))
     # Compute statistics
     stats = [np.concatenate(x, 0) for x in zip(*stats)]  # to numpy
     if len(stats) and stats[0].any():
@@ -234,9 +239,9 @@ def test(data,
             print(pf % (names[c], seen, nt[c], p[i], r[i], ap50[i], ap[i]))
 
     # Print speeds
-    t = tuple(x / seen * 1E3 for x in (t0, t1, t0 + t1)) + (imgsz, imgsz, batch_size)  # tuple
-    if not training:
-        print('Speed: %.1f/%.1f/%.1f ms inference/NMS/total per %gx%g image at batch-size %g' % t)
+    #t = tuple(x / seen * 1E3 for x in (t0, t1, t0 + t1)) + (imgsz, imgsz, batch_size)  # tuple
+    #if not training:
+        #print('Speed: %.1f/%.1f/%.1f ms inference/NMS/total per %gx%g image at batch-size %g' % t)
 
     # Plots
     if plots:
@@ -287,12 +292,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog='test.py')
     parser.add_argument('--weights', nargs='+', type=str, default='yolov7.pt', help='model.pt path(s)')
     parser.add_argument('--data', type=str, default='data/coco.yaml', help='*.data path')
-    parser.add_argument('--batch-size', type=int, default=32, help='size of each image batch')
-    parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
-    parser.add_argument('--conf-thres', type=float, default=0.001, help='object confidence threshold')
-    parser.add_argument('--iou-thres', type=float, default=0.65, help='IOU threshold for NMS')
-    parser.add_argument('--task', default='val', help='train, val, test, speed or study')
-    parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    parser.add_argument('--batch-size', type=int, default=1, help='size of each image batch')
+    parser.add_argument('--img-size', type=int, default=736, help='inference size (pixels)')
+    parser.add_argument('--conf-thres', type=float, default=0.45, help='object confidence threshold')
+    parser.add_argument('--iou-thres', type=float, default=0.4, help='IOU threshold for NMS')
+    parser.add_argument('--task', default='test', help='train, val, test, speed or study')
+    parser.add_argument('--device', default='0', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--single-cls', action='store_true', help='treat as single-class dataset')
     parser.add_argument('--augment', action='store_true', help='augmented inference')
     parser.add_argument('--verbose', action='store_true', help='report mAP by class')
